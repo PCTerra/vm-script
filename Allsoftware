@@ -1,0 +1,36 @@
+# Enable script execution
+Set-ExecutionPolicy Unrestricted -Force
+
+# Install Chocolatey
+Set-ExecutionPolicy Bypass -Scope Process -Force
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+# Install packages
+choco install -y git vscode eclipse jdk17 postgresql python3 nodejs-lts docker-desktop
+
+# Install pip & Python packages
+$env:Path += ";C:\Program Files\Python311\Scripts"
+python -m pip install --upgrade pip
+pip install pandas scikit-learn tensorflow plotly matplotlib seaborn jupyterlab
+
+# Install Minikube and Kubectl
+choco install -y minikube kubernetes-cli
+
+# Install GitHub CLI
+choco install -y gh
+
+# Install Spring Boot CLI via SDKMAN
+Invoke-WebRequest -Uri "https://get.sdkman.io" -OutFile "get-sdkman.sh"
+bash get-sdkman.sh
+source "$HOME/.sdkman/bin/sdkman-init.sh"
+sdk install springboot
+
+# Install React chart.js
+npm install react-chartjs-2 chart.js
+
+# Install Serverless framework
+npm install -g serverless
+
+# Enable Remote Desktop Firewall Rule
+Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
