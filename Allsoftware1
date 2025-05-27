@@ -39,6 +39,12 @@ choco install -y minikube kubernetes-cli
 # --- Serverless Framework ---
 npm install -g serverless
 
+# Install Scoop if not installed
+Set-ExecutionPolicy RemoteSigned -scope CurrentUser
+Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
+
+# Install glab using Scoop
+scoop install glab
 # --- GitHub CLI ---
 choco install -y gh
 
