@@ -1,0 +1,63 @@
+# Ensure script runs as admin
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Error "Please run this script as Administrator"
+    exit 1
+}
+
+# Update PowerShell and install Chocolatey
+Set-ExecutionPolicy Bypass -Scope Process -Force
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
+Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Refresh environment
+$env:Path += ";$env:ALLUSERSPROFILE\chocolatey\bin"
+
+# Helper function
+function Install-ChocoPackage($name) {
+    choco install $name -y --no-progress
+}
+
+# Install core tools
+Install-ChocoPackage git
+Install-ChocoPackage vscode
+Install-ChocoPackage jdk17
+Install-ChocoPackage eclipse
+Install-ChocoPackage postgresql
+Install-ChocoPackage python
+Install-ChocoPackage nodejs-lts
+Install-ChocoPackage docker-desktop
+Install-ChocoPackage minikube
+
+# Install pip packages
+$env:Path += ";C:\Python311\Scripts"
+pip install --upgrade pip
+pip install pandas scikit-learn tensorflow plotly matplotlib seaborn jupyterlab
+
+# Install Spring Boot CLI (manual)
+$SpringZipUrl = "https://repo.spring.io/release/org/springframework/boot/spring-boot-cli/3.2.5/spring-boot-cli-3.2.5-bin.zip"
+$SpringDir = "C:\spring"
+New-Item -ItemType Directory -Force -Path $SpringDir
+Invoke-WebRequest -Uri $SpringZipUrl -OutFile "$SpringDir\spring.zip"
+Expand-Archive -Path "$SpringDir\spring.zip" -DestinationPath $SpringDir
+$env:Path += ";$SpringDir\spring-3.2.5\bin"
+
+# Install Kafka (manual)
+$KafkaUrl = "https://downloads.apache.org/kafka/3.7.0/kafka_2.13-3.7.0.tgz"
+$KafkaDir = "C:\kafka"
+New-Item -ItemType Directory -Force -Path $KafkaDir
+Invoke-WebRequest -Uri $KafkaUrl -OutFile "$KafkaDir\kafka.tgz"
+tar -xf "$KafkaDir\kafka.tgz" -C $KafkaDir
+$env:Path += ";$KafkaDir\kafka_2.13-3.7.0\bin\windows"
+
+# Install GitHub CLI and GitLab CLI
+Invoke-WebRequest -Uri "https://github.com/cli/cli/releases/latest/download/gh_2.49.0_windows_amd64.msi" -OutFile "$env:TEMP\gh.msi"
+Start-Process msiexec.exe -ArgumentList "/i $env:TEMP\gh.msi /quiet" -Wait
+
+Invoke-WebRequest -Uri "https://gitlab.com/gitlab-org/cli/-/releases/v1.36.0/downloads/glab_1.36.0_Windows_x86_64.msi" -OutFile "$env:TEMP\glab.msi"
+Start-Process msiexec.exe -ArgumentList "/i $env:TEMP\glab.msi /quiet" -Wait
+
+# Install Serverless framework
+npm install -g serverless
+
+# Done
+Write-Host "`nInstallation completed. Please restart the VM to finalize all settings." -ForegroundColor Green
