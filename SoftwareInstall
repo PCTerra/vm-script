@@ -1,0 +1,100 @@
+# Ensure script runs as admin
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Error "Please run this script as Administrator"
+    exit 1
+}
+
+# Set TLS protocol
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+# Install Chocolatey (if not already installed)
+if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
+    Set-ExecutionPolicy Bypass -Scope Process -Force
+    Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+    $env:Path += ";$env:ALLUSERSPROFILE\chocolatey\bin"
+}
+
+# Helper: install only if not already installed
+function Install-ChocoPackage($pkg) {
+    if (-not (choco list --local-only | Select-String "^$pkg ")) {
+        choco install $pkg -y --no-progress
+    } else {
+        Write-Host "$pkg already installed. Skipping..."
+    }
+}
+
+# Core tools
+Install-ChocoPackage git
+Install-ChocoPackage vscode
+Install-ChocoPackage jdk17
+Install-ChocoPackage eclipse
+Install-ChocoPackage postgresql
+Install-ChocoPackage python
+Install-ChocoPackage nodejs-lts
+Install-ChocoPackage docker-desktop
+Install-ChocoPackage minikube
+
+# Python packages
+$env:Path += ";C:\Python311\Scripts"
+if (!(Get-Command pip -ErrorAction SilentlyContinue)) {
+    Write-Warning "pip not found. Please check Python installation."
+} else {
+    pip install --upgrade pip
+    pip install pandas scikit-learn tensorflow plotly matplotlib seaborn jupyterlab
+}
+
+# Install Spring Boot CLI (manual)
+$SpringDir = "C:\spring"
+$SpringBin = "$SpringDir\spring-3.2.5\bin"
+if (!(Test-Path $SpringBin)) {
+    New-Item -ItemType Directory -Force -Path $SpringDir | Out-Null
+    $springUrl = "https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-cli/3.2.5/spring-boot-cli-3.2.5-bin.zip"
+    curl.exe -L -o "$SpringDir\spring.zip" $springUrl
+    Expand-Archive -Path "$SpringDir\spring.zip" -DestinationPath $SpringDir
+    $env:Path += ";$SpringBin"
+} else {
+    Write-Host "Spring Boot CLI already installed."
+}
+
+# Install Kafka (manual)
+$KafkaDir = "C:\kafka"
+$KafkaBin = "$KafkaDir\kafka_2.13-3.7.0\bin\windows"
+if (!(Test-Path $KafkaBin)) {
+    New-Item -ItemType Directory -Force -Path $KafkaDir | Out-Null
+    $kafkaUrl = "https://downloads.apache.org/kafka/3.7.0/kafka_2.13-3.7.0.tgz"
+    curl.exe -L -o "$KafkaDir\kafka.tgz" $kafkaUrl
+    tar -xf "$KafkaDir\kafka.tgz" -C $KafkaDir
+    $env:Path += ";$KafkaBin"
+} else {
+    Write-Host "Kafka already installed."
+}
+
+# Install GitHub CLI
+if (!(Get-Command gh -ErrorAction SilentlyContinue)) {
+    $ghUrl = "https://github.com/cli/cli/releases/latest/download/gh_2.49.0_windows_amd64.msi"
+    $ghMsi = "$env:TEMP\gh.msi"
+    curl.exe -L -o $ghMsi $ghUrl
+    Start-Process msiexec.exe -ArgumentList "/i $ghMsi /quiet" -Wait
+} else {
+    Write-Host "GitHub CLI already installed."
+}
+
+# Install GitLab CLI
+if (!(Get-Command glab -ErrorAction SilentlyContinue)) {
+    $glabUrl = "https://gitlab.com/api/v4/projects/cli%2Fcli/packages/generic/glab/1.36.0/glab_1.36.0_Windows_x86_64.msi"
+    $glabMsi = "$env:TEMP\glab.msi"
+    curl.exe -L -o $glabMsi $glabUrl
+    Start-Process msiexec.exe -ArgumentList "/i $glabMsi /quiet" -Wait
+} else {
+    Write-Host "GitLab CLI already installed."
+}
+
+# Install Serverless Framework
+if (!(Get-Command serverless -ErrorAction SilentlyContinue)) {
+    npm install -g serverless
+} else {
+    Write-Host "Serverless Framework already installed."
+}
+
+# Done
+Write-Host "`n✅ All installations completed. Please restart the VM to apply all changes." -ForegroundColor Green
