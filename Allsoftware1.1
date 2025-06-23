@@ -8,7 +8,7 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 # Logging
 Start-Transcript -Path "C:\install-log.txt" -Append
 
-# Chocolatey install
+# Install Chocolatey if missing
 if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
     Set-ExecutionPolicy Bypass -Scope Process -Force
     [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
@@ -16,17 +16,17 @@ if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
 }
 [Environment]::SetEnvironmentVariable("Path", $env:Path + ";$env:ALLUSERSPROFILE\chocolatey\bin", [EnvironmentVariableTarget]::Machine)
 
-# Helper
-function Install-ChocoPackageIfMissing($name, $check) {
-    if (!(Get-Command $check -ErrorAction SilentlyContinue)) {
+# Helper function
+function Install-ChocoPackageIfMissing($name, $checkCmd) {
+    if (!(Get-Command $checkCmd -ErrorAction SilentlyContinue)) {
         Write-Host "Installing $name..."
         choco install $name -y --no-progress
     } else {
-        Write-Host "$name already installed, skipping..."
+        Write-Host "$name already installed. Skipping..."
     }
 }
 
-# Core tools
+# Chocolatey tools
 Install-ChocoPackageIfMissing "git" "git"
 Install-ChocoPackageIfMissing "jdk17" "java"
 Install-ChocoPackageIfMissing "eclipse" "eclipse"
@@ -64,7 +64,7 @@ if (!(Test-Path "$KafkaBin\kafka-topics.bat")) {
     Write-Host "Apache Kafka already installed"
 }
 
-# Python packages
+# Python pip packages
 $env:Path += ";C:\Python311\Scripts"
 $packages = "pandas","numpy","scikit-learn","matplotlib","seaborn","plotly","jupyterlab","streamlit"
 foreach ($pkg in $packages) {
@@ -72,35 +72,37 @@ foreach ($pkg in $packages) {
         Write-Host "Installing Python package: $pkg"
         pip install $pkg
     } else {
-        Write-Host "$pkg already installed"
+        Write-Host "Python package $pkg already installed"
     }
 }
 
-# DJL Download
+# DJL Examples
 $DJLDir = "C:\djl"
 if (!(Test-Path $DJLDir)) {
     Write-Host "Downloading DJL examples..."
     Invoke-WebRequest -Uri "https://github.com/deepjavalibrary/djl/archive/refs/heads/master.zip" -OutFile "$env:TEMP\djl.zip"
     Expand-Archive -Path "$env:TEMP\djl.zip" -DestinationPath $DJLDir
+} else {
+    Write-Host "DJL already downloaded"
 }
 
-# Weka Install (silent fallback)
+# Weka install (safe .exe or .jar fallback)
 $WekaDir = "C:\weka"
-$WekaJar = "$WekaDir\weka.jar"
-if (!(Test-Path $WekaJar)) {
-    Write-Host "Downloading Weka..."
+$WekaExe = "$env:TEMP\weka.exe"
+if (!(Test-Path "$WekaDir")) {
+    Write-Host "Installing Weka..."
     New-Item -ItemType Directory -Force -Path $WekaDir | Out-Null
-    Invoke-WebRequest -Uri "https://prdownloads.sourceforge.net/weka/weka-3-8-6-azul-zulu-windows.exe" -OutFile "$env:TEMP\weka.exe"
     try {
-        Start-Process "$env:TEMP\weka.exe" -ArgumentList "/S" -Wait
+        Invoke-WebRequest -Uri "https://prdownloads.sourceforge.net/weka/weka-3-8-6-azul-zulu-windows.exe" -OutFile $WekaExe
+        Start-Process -FilePath $WekaExe -ArgumentList "/S" -Wait
     } catch {
-        Write-Warning "Weka GUI installer may not run properly under VM Extension. You can use weka.jar manually."
+        Write-Warning "Weka installation failed or not supported in non-GUI mode. You can run it manually later."
     }
 } else {
     Write-Host "Weka already installed"
 }
 
 # Done
-Write-Host "`n✅ All technology stack components installed. Restart the VM to finalize PATH settings." -ForegroundColor Green
+Write-Host "`n✅ All missing components installed successfully." -ForegroundColor Green
 Stop-Transcript
 exit 0
