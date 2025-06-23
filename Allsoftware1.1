@@ -1,18 +1,18 @@
-# Ensure script runs as admin
+# Ensure admin privileges
 if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Error "Please run this script as Administrator"
     exit 1
 }
 
-# Install Chocolatey if not installed
+# Chocolatey install
 if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
     Set-ExecutionPolicy Bypass -Scope Process -Force
     [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
     Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 }
-
 $env:Path += ";$env:ALLUSERSPROFILE\chocolatey\bin"
 
+# Helper
 function Install-ChocoPackageIfMissing($name, $check) {
     if (!(Get-Command $check -ErrorAction SilentlyContinue)) {
         Write-Host "Installing $name..."
@@ -24,46 +24,35 @@ function Install-ChocoPackageIfMissing($name, $check) {
 
 # Core tools
 Install-ChocoPackageIfMissing "git" "git"
-Install-ChocoPackageIfMissing "vscode" "code"
 Install-ChocoPackageIfMissing "jdk17" "java"
 Install-ChocoPackageIfMissing "eclipse" "eclipse"
-Install-ChocoPackageIfMissing "postgresql" "psql"
+Install-ChocoPackageIfMissing "vscode" "code"
 Install-ChocoPackageIfMissing "python" "python"
 Install-ChocoPackageIfMissing "nodejs-lts" "node"
 Install-ChocoPackageIfMissing "docker-desktop" "docker"
-Install-ChocoPackageIfMissing "minikube" "minikube"
+Install-ChocoPackageIfMissing "pgadmin4" "pgadmin4"
 
-# pip packages
-$env:Path += ";C:\Python311\Scripts"
-if (!(Get-Command pip -ErrorAction SilentlyContinue)) {
-    Write-Host "pip not found. Ensure Python and pip are installed correctly."
-} else {
-    $packages = "pandas","scikit-learn","tensorflow","plotly","matplotlib","seaborn","jupyterlab"
-    foreach ($pkg in $packages) {
-        if (-not (pip show $pkg 2>$null)) {
-            Write-Host "Installing Python package: $pkg"
-            pip install $pkg
-        } else {
-            Write-Host "Python package $pkg already installed"
-        }
-    }
-}
+# React-chartjs-2 setup via Node
+npm install -g react-chartjs-2
+
+# Serverless if needed (optional)
+# npm install -g serverless
 
 # Spring Boot CLI
 $SpringDir = "C:\spring"
 $SpringBin = "$SpringDir\spring-3.2.5\bin"
 if (!(Test-Path "$SpringBin\spring.bat")) {
     Write-Host "Installing Spring Boot CLI..."
-    $SpringZipUrl = "https://repo.spring.io/release/org/springframework/boot/spring-boot-cli/3.2.5/spring-boot-cli-3.2.5-bin.zip"
+    $SpringZipUrl = "https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-cli/3.2.5/spring-boot-cli-3.2.5-bin.zip"
     New-Item -ItemType Directory -Force -Path $SpringDir
     Invoke-WebRequest -Uri $SpringZipUrl -OutFile "$SpringDir\spring.zip"
     Expand-Archive -Path "$SpringDir\spring.zip" -DestinationPath $SpringDir
-    $env:Path += ";$SpringBin"
+    [Environment]::SetEnvironmentVariable("Path", $env:Path + ";$SpringBin", [EnvironmentVariableTarget]::Machine)
 } else {
     Write-Host "Spring Boot CLI already installed"
 }
 
-# Kafka
+# Apache Kafka
 $KafkaDir = "C:\kafka"
 $KafkaBin = "$KafkaDir\kafka_2.13-3.7.0\bin\windows"
 if (!(Test-Path "$KafkaBin\kafka-topics.bat")) {
@@ -72,35 +61,42 @@ if (!(Test-Path "$KafkaBin\kafka-topics.bat")) {
     New-Item -ItemType Directory -Force -Path $KafkaDir
     Invoke-WebRequest -Uri $KafkaUrl -OutFile "$KafkaDir\kafka.tgz"
     tar -xf "$KafkaDir\kafka.tgz" -C $KafkaDir
-    $env:Path += ";$KafkaBin"
+    [Environment]::SetEnvironmentVariable("Path", $env:Path + ";$KafkaBin", [EnvironmentVariableTarget]::Machine)
 } else {
     Write-Host "Apache Kafka already installed"
 }
 
-# GitHub CLI
-if (!(Get-Command gh -ErrorAction SilentlyContinue)) {
-    Write-Host "Installing GitHub CLI..."
-    Invoke-WebRequest -Uri "https://github.com/cli/cli/releases/latest/download/gh_2.49.0_windows_amd64.msi" -OutFile "$env:TEMP\gh.msi"
-    Start-Process msiexec.exe -ArgumentList "/i $env:TEMP\gh.msi /quiet" -Wait
-} else {
-    Write-Host "GitHub CLI already installed"
+# Python packages
+$env:Path += ";C:\Python311\Scripts"
+$packages = "pandas","numpy","scikit-learn","matplotlib","seaborn","plotly","jupyterlab","streamlit"
+foreach ($pkg in $packages) {
+    if (!(pip show $pkg 2>$null)) {
+        Write-Host "Installing Python package: $pkg"
+        pip install $pkg
+    } else {
+        Write-Host "$pkg already installed"
+    }
 }
 
-# GitLab CLI
-if (!(Get-Command glab -ErrorAction SilentlyContinue)) {
-    Write-Host "Installing GitLab CLI..."
-    Invoke-WebRequest -Uri "https://gitlab.com/gitlab-org/cli/-/releases/v1.36.0/downloads/glab_1.36.0_Windows_x86_64.msi" -OutFile "$env:TEMP\glab.msi"
-    Start-Process msiexec.exe -ArgumentList "/i $env:TEMP\glab.msi /quiet" -Wait
-} else {
-    Write-Host "GitLab CLI already installed"
+# Install DJL (Deep Java Library) - optional
+# Just download example repo for reference
+$DJLDir = "C:\djl"
+if (!(Test-Path $DJLDir)) {
+    Write-Host "Downloading DJL examples..."
+    Invoke-WebRequest -Uri "https://github.com/deepjavalibrary/djl/archive/refs/heads/master.zip" -OutFile "$env:TEMP\djl.zip"
+    Expand-Archive -Path "$env:TEMP\djl.zip" -DestinationPath $DJLDir
 }
 
-# Serverless Framework
-if (!(Get-Command serverless -ErrorAction SilentlyContinue)) {
-    Write-Host "Installing Serverless Framework..."
-    npm install -g serverless
+# Install Weka (alternative to DJL)
+$WekaJar = "C:\weka\weka.jar"
+if (!(Test-Path $WekaJar)) {
+    Write-Host "Installing Weka..."
+    New-Item -ItemType Directory -Force -Path "C:\weka"
+    Invoke-WebRequest -Uri "https://prdownloads.sourceforge.net/weka/weka-3-8-6-azul-zulu-windows.exe" -OutFile "$env:TEMP\weka.exe"
+    Start-Process "$env:TEMP\weka.exe" -ArgumentList "/S" -Wait
 } else {
-    Write-Host "Serverless Framework already installed"
+    Write-Host "Weka already installed"
 }
 
-Write-Host "`n✅ Installation complete. Restart the VM to ensure all paths are updated." -ForegroundColor Green
+# Done
+Write-Host "`n✅ All technology stack components installed. Restart the VM to finalize PATH settings." -ForegroundColor Green
