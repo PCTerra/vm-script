@@ -28,7 +28,7 @@ Install-ChocoPackage git
 Install-ChocoPackage vscode
 Install-ChocoPackage jdk17
 Install-ChocoPackage eclipse
-Install-ChocoPackage postgresql
+choco install pgadmin4 -y
 Install-ChocoPackage python
 Install-ChocoPackage nodejs-lts
 Install-ChocoPackage docker-desktop
