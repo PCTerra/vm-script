@@ -1,8 +1,12 @@
 # Ensure admin privileges
-if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
+    [Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Error "Please run this script as Administrator"
     exit 1
 }
+
+# Logging
+Start-Transcript -Path "C:\install-log.txt" -Append
 
 # Chocolatey install
 if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
@@ -10,7 +14,7 @@ if (!(Get-Command choco -ErrorAction SilentlyContinue)) {
     [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
     Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
 }
-$env:Path += ";$env:ALLUSERSPROFILE\chocolatey\bin"
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$env:ALLUSERSPROFILE\chocolatey\bin", [EnvironmentVariableTarget]::Machine)
 
 # Helper
 function Install-ChocoPackageIfMissing($name, $check) {
@@ -32,19 +36,13 @@ Install-ChocoPackageIfMissing "nodejs-lts" "node"
 Install-ChocoPackageIfMissing "docker-desktop" "docker"
 Install-ChocoPackageIfMissing "pgadmin4" "pgadmin4"
 
-# React-chartjs-2 setup via Node
-npm install -g react-chartjs-2
-
-# Serverless if needed (optional)
-# npm install -g serverless
-
 # Spring Boot CLI
 $SpringDir = "C:\spring"
 $SpringBin = "$SpringDir\spring-3.2.5\bin"
 if (!(Test-Path "$SpringBin\spring.bat")) {
     Write-Host "Installing Spring Boot CLI..."
     $SpringZipUrl = "https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-cli/3.2.5/spring-boot-cli-3.2.5-bin.zip"
-    New-Item -ItemType Directory -Force -Path $SpringDir
+    New-Item -ItemType Directory -Force -Path $SpringDir | Out-Null
     Invoke-WebRequest -Uri $SpringZipUrl -OutFile "$SpringDir\spring.zip"
     Expand-Archive -Path "$SpringDir\spring.zip" -DestinationPath $SpringDir
     [Environment]::SetEnvironmentVariable("Path", $env:Path + ";$SpringBin", [EnvironmentVariableTarget]::Machine)
@@ -58,7 +56,7 @@ $KafkaBin = "$KafkaDir\kafka_2.13-3.7.0\bin\windows"
 if (!(Test-Path "$KafkaBin\kafka-topics.bat")) {
     Write-Host "Installing Apache Kafka..."
     $KafkaUrl = "https://downloads.apache.org/kafka/3.7.0/kafka_2.13-3.7.0.tgz"
-    New-Item -ItemType Directory -Force -Path $KafkaDir
+    New-Item -ItemType Directory -Force -Path $KafkaDir | Out-Null
     Invoke-WebRequest -Uri $KafkaUrl -OutFile "$KafkaDir\kafka.tgz"
     tar -xf "$KafkaDir\kafka.tgz" -C $KafkaDir
     [Environment]::SetEnvironmentVariable("Path", $env:Path + ";$KafkaBin", [EnvironmentVariableTarget]::Machine)
@@ -78,8 +76,7 @@ foreach ($pkg in $packages) {
     }
 }
 
-# Install DJL (Deep Java Library) - optional
-# Just download example repo for reference
+# DJL Download
 $DJLDir = "C:\djl"
 if (!(Test-Path $DJLDir)) {
     Write-Host "Downloading DJL examples..."
@@ -87,16 +84,23 @@ if (!(Test-Path $DJLDir)) {
     Expand-Archive -Path "$env:TEMP\djl.zip" -DestinationPath $DJLDir
 }
 
-# Install Weka (alternative to DJL)
-$WekaJar = "C:\weka\weka.jar"
+# Weka Install (silent fallback)
+$WekaDir = "C:\weka"
+$WekaJar = "$WekaDir\weka.jar"
 if (!(Test-Path $WekaJar)) {
-    Write-Host "Installing Weka..."
-    New-Item -ItemType Directory -Force -Path "C:\weka"
+    Write-Host "Downloading Weka..."
+    New-Item -ItemType Directory -Force -Path $WekaDir | Out-Null
     Invoke-WebRequest -Uri "https://prdownloads.sourceforge.net/weka/weka-3-8-6-azul-zulu-windows.exe" -OutFile "$env:TEMP\weka.exe"
-    Start-Process "$env:TEMP\weka.exe" -ArgumentList "/S" -Wait
+    try {
+        Start-Process "$env:TEMP\weka.exe" -ArgumentList "/S" -Wait
+    } catch {
+        Write-Warning "Weka GUI installer may not run properly under VM Extension. You can use weka.jar manually."
+    }
 } else {
     Write-Host "Weka already installed"
 }
 
 # Done
 Write-Host "`n✅ All technology stack components installed. Restart the VM to finalize PATH settings." -ForegroundColor Green
+Stop-Transcript
+exit 0
